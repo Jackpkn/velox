@@ -1,0 +1,31 @@
+[project]
+name = "velox"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Jackpkn", email = "pawankumarbairwa879@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.15.0",
+    "fastapi>=0.162.0",
+    "httpx[http2]>=0.28.1",
+    "playwright>=1.64.0",
+    "pydantic>=2.14.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+velox = "velox:main"
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.8",
+]
