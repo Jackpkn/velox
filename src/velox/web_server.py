@@ -21,6 +21,7 @@ from .llm import LLMClient, LLMConfig
 log = logging.getLogger("velox")
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 DEFAULT_PROFILE_DIR = Path(os.environ.get("BROWSER_PROFILE_DIR", ".velox/browser-profile"))
+_ACTIVE_SESSIONS: set[WebSession] = set()
 
 
 class WebSession:
@@ -33,6 +34,7 @@ class WebSession:
         self.task: asyncio.Task | None = None
         self.persist_profile: bool = True
         self.closed = False
+        _ACTIVE_SESSIONS.add(self)
 
     async def send(self, event: dict[str, Any]) -> None:
         if self.closed:
@@ -48,6 +50,11 @@ class WebSession:
             return self.browser
         if self.browser is not None:
             await self.browser.close()
+        if self.persist_profile:
+            for other in list(_ACTIVE_SESSIONS):
+                if other is not self and other.browser is not None:
+                    await other.browser.close()
+                    other.browser = None
         self.browser = BrowserSession(on_frame=self.on_frame)
         profile = DEFAULT_PROFILE_DIR if self.persist_profile else None
         await self.browser.start(url, trusted=True, user_data_dir=profile)
@@ -168,6 +175,7 @@ class WebSession:
 
     async def close(self) -> None:
         self.closed = True
+        _ACTIVE_SESSIONS.discard(self)
         if self.agent:
             await self.agent.stop()
         if self.task and not self.task.done():

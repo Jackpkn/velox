@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import shutil
+import signal
 import socket
 import time
 from collections.abc import Awaitable, Callable
@@ -255,14 +256,29 @@ class BrowserSession:
                 self.context = await self.browser.new_context(**ctx_kwargs)
             elif profile_dir is not None:
                 profile_dir.mkdir(parents=True, exist_ok=True)
-                self.context = await self.playwright.chromium.launch_persistent_context(
-                    str(profile_dir),
-                    channel=channel,
-                    headless=headless,
-                    args=launch_args,
-                    ignore_default_args=ignore_default_args,
-                    **ctx_kwargs,
-                )
+                self._release_profile_lock(profile_dir, force_kill=False)
+                try:
+                    self.context = await self.playwright.chromium.launch_persistent_context(
+                        str(profile_dir),
+                        channel=channel,
+                        headless=headless,
+                        args=launch_args,
+                        ignore_default_args=ignore_default_args,
+                        **ctx_kwargs,
+                    )
+                except PlaywrightError as exc:
+                    if "ProcessSingleton" not in str(exc):
+                        raise
+                    self._release_profile_lock(profile_dir, force_kill=True)
+                    await asyncio.sleep(0.3)
+                    self.context = await self.playwright.chromium.launch_persistent_context(
+                        str(profile_dir),
+                        channel=channel,
+                        headless=headless,
+                        args=launch_args,
+                        ignore_default_args=ignore_default_args,
+                        **ctx_kwargs,
+                    )
             else:
                 self.browser = await self.playwright.chromium.launch(
                     channel=channel,
@@ -295,6 +311,34 @@ class BrowserSession:
         await self._start_screencast(self.page)
         self._frame_task = asyncio.create_task(self._frame_loop())
         await self.navigate(url, trusted=trusted)
+
+    @staticmethod
+    def _release_profile_lock(profile_dir: Path, *, force_kill: bool = False) -> None:
+        lock = profile_dir / "SingletonLock"
+        pid: int | None = None
+        if lock.is_symlink():
+            with contextlib.suppress(OSError, ValueError):
+                target = os.readlink(lock)
+                pid_str = target.rsplit("-", 1)[-1]
+                pid = int(pid_str)
+        alive = False
+        if pid and pid > 0 and pid != os.getpid():
+            try:
+                os.kill(pid, 0)
+                alive = True
+            except ProcessLookupError:
+                alive = False
+            except PermissionError:
+                alive = True
+        if alive and force_kill and pid:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGTERM)
+        if not alive or force_kill:
+            for name in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+                p = profile_dir / name
+                if p.exists() or p.is_symlink():
+                    with contextlib.suppress(OSError):
+                        p.unlink()
 
     @staticmethod
     def clear_profile(profile_dir: Path) -> bool:
