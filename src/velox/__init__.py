@@ -18,6 +18,16 @@ __all__ = ["Agent", "BrowserSession", "main"]
 
 
 async def _run_cli() -> None:
+    for env_path in (Path(".env"), Path(__file__).resolve().parents[2] / ".env"):
+        if env_path.is_file():
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+            break
+
     parser = argparse.ArgumentParser(description="Velox autonomous browser agent")
     parser.add_argument("goal", help="Natural-language goal to execute")
     parser.add_argument("--url", default="https://www.bing.com/", help="Starting URL")

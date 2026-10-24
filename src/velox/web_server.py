@@ -177,7 +177,20 @@ class WebSession:
             self.browser = None
 
 
+def _load_dotenv() -> None:
+    for env_path in (Path(".env"), Path(__file__).resolve().parents[2] / ".env"):
+        if env_path.is_file():
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+            break
+
+
 def create_app() -> FastAPI:
+    _load_dotenv()
     app = FastAPI(title="Velox HTML/JS Test Console")
     config = LLMConfig.from_env()
     llm = LLMClient(config)
