@@ -195,21 +195,26 @@ def _load_dotenv() -> None:
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+                key, val = k.strip(), v.strip().strip("'\"")
+                if val:
+                    os.environ[key] = val
+                elif key == "GEMINI_API_KEY":
+                    os.environ.pop("GEMINI_API_KEY", None)
             break
 
 
 def create_app() -> FastAPI:
     _load_dotenv()
     app = FastAPI(title="Velox HTML/JS Test Console")
-    config = LLMConfig.from_env()
-    llm = LLMClient(config)
-    fast_cfg = FastConfig.from_env()
-    fast = FastPolicy(fast_cfg) if fast_cfg.enabled else None
 
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
         await ws.accept()
+        _load_dotenv()
+        config = LLMConfig.from_env()
+        llm = LLMClient(config)
+        fast_cfg = FastConfig.from_env()
+        fast = FastPolicy(fast_cfg) if fast_cfg.enabled else None
         session = WebSession(ws, llm, fast)
         await session.send({
             "type": "hello",
@@ -227,6 +232,9 @@ def create_app() -> FastAPI:
             pass
         finally:
             await session.close()
+            await llm.close()
+            if fast:
+                await fast.close()
 
     if WEB_DIR.is_dir():
         app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="static")

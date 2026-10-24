@@ -25,7 +25,11 @@ async def _run_cli() -> None:
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+                key, val = k.strip(), v.strip().strip("'\"")
+                if val:
+                    os.environ[key] = val
+                elif key == "GEMINI_API_KEY":
+                    os.environ.pop("GEMINI_API_KEY", None)
             break
 
     parser = argparse.ArgumentParser(description="Velox autonomous browser agent")

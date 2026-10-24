@@ -18,7 +18,7 @@ from .anthropic_backend import cost as anthropic_cost
 from .telemetry import invalid_response, model_call, tracked_post
 
 ANTHROPIC_MODELS = "claude-haiku-5-5,claude-sonnet-5-5,claude-opus-5-5"  # first is the default planner
-GEMINI_MODELS = "gemini-4-argon,gemini-3-flash-preview,gemini-3.1-pro-preview,gemini-2.5-flash,gemma-4-31b-it"
+GEMINI_MODELS = "gemini-4-argon,gemini-3.8-flash,gemini-3-flash-preview,gemini-3.1-pro-preview,gemma-4-31b-it"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 DEFAULT_MODELS = "anthropic/claude-sonnet-5.5,anthropic/claude-haiku-5.5,inception/mercury-2.5,google/gemini-3.7-flash"
 
@@ -54,7 +54,7 @@ class LLMConfig:
             key = os.environ.get("GEMINI_API_KEY") or os.environ.get("LLM_API_KEY") or ""
             defaults = GEMINI_MODELS
             default_base = GEMINI_BASE_URL
-            default_extract = "gemini-2.5-flash"
+            default_extract = "gemini-3.8-flash"
         else:
             key = (os.environ.get("LLM_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
                    or os.environ.get("TEXT_MODEL_API_KEY") or "")
