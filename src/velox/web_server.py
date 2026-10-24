@@ -20,7 +20,9 @@ from .llm import LLMClient, LLMConfig
 
 log = logging.getLogger("velox")
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
-DEFAULT_PROFILE_DIR = Path(os.environ.get("BROWSER_PROFILE_DIR", ".velox/browser-profile"))
+DEFAULT_PROFILE_DIR = Path(
+    os.environ.get("BROWSER_PROFILE_DIR", str(Path.home() / ".velox" / "browser-profile"))
+).expanduser()
 _ACTIVE_SESSIONS: set[WebSession] = set()
 
 

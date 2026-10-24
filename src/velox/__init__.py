@@ -36,7 +36,7 @@ async def _run_cli() -> None:
     parser.add_argument("--max-steps", type=int, default=30)
     parser.add_argument(
         "--profile-dir",
-        default=".velox/browser-profile",
+        default=str(Path.home() / ".velox" / "browser-profile"),
         help="Persistent Chromium user data directory (Cookies + localStorage + IndexedDB). Pass '' to disable.",
     )
     parser.add_argument("--clear-profile", action="store_true", help="Clear the persistent profile before starting")
