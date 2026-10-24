@@ -18,6 +18,8 @@ from .anthropic_backend import cost as anthropic_cost
 from .telemetry import invalid_response, model_call, tracked_post
 
 ANTHROPIC_MODELS = "claude-haiku-5-5,claude-sonnet-5-5,claude-opus-5-5"  # first is the default planner
+GEMINI_MODELS = "gemini-4-argon,gemini-3-flash-preview,gemini-3.1-pro-preview,gemini-2.5-flash,gemma-4-31b-it"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 DEFAULT_MODELS = "anthropic/claude-sonnet-5.5,anthropic/claude-haiku-5.5,inception/mercury-2.5,google/gemini-3.7-flash"
 
 
@@ -39,22 +41,33 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls) -> LLMConfig:
-        provider = os.environ.get("LLM_PROVIDER") or ("anthropic" if os.environ.get("ANTHROPIC_API_KEY")
-                                                      else "openrouter")
+        provider = os.environ.get("LLM_PROVIDER") or (
+            "gemini" if os.environ.get("GEMINI_API_KEY")
+            else "anthropic" if os.environ.get("ANTHROPIC_API_KEY")
+            else "openrouter"
+        )
         if provider == "anthropic":
             key, defaults = os.environ.get("ANTHROPIC_API_KEY", ""), ANTHROPIC_MODELS
+            default_base = "https://api.anthropic.com/v1"
+            default_extract = "claude-haiku-5-5"
+        elif provider == "gemini":
+            key = os.environ.get("GEMINI_API_KEY") or os.environ.get("LLM_API_KEY") or ""
+            defaults = GEMINI_MODELS
+            default_base = GEMINI_BASE_URL
+            default_extract = "gemini-2.5-flash"
         else:
             key = (os.environ.get("LLM_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
                    or os.environ.get("TEXT_MODEL_API_KEY") or "")
             defaults = DEFAULT_MODELS
+            default_base = "https://openrouter.ai/api/v1"
+            default_extract = "anthropic/claude-haiku-5.5"
         models = tuple(m.strip() for m in os.environ.get("LLM_MODELS", defaults).split(",") if m.strip())
         return cls(
-            base_url=os.environ.get("LLM_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/"),
+            base_url=os.environ.get("LLM_BASE_URL", default_base).rstrip("/"),
             api_key=key,
             models=models or tuple(defaults.split(",")),
             provider=provider,
-            extract_model=os.environ.get("EXTRACT_MODEL")
-            or ("claude-haiku-5-5" if provider == "anthropic" else "anthropic/claude-haiku-5.5"),
+            extract_model=os.environ.get("EXTRACT_MODEL") or default_extract,
         )
 
 
@@ -96,16 +109,17 @@ class LLMClient:
                             cost_usd=spent, thinking=native_thinking, cached_tokens=cached)
         if model in self.text_only:
             messages = strip_images(messages)
-        body = {
+        body: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "tools": tools,
             "tool_choice": {"type": "function", "function": {"name": force}} if force else "required",
-            "parallel_tool_calls": False,
             "temperature": 0.2,
             "max_tokens": 4096,
-            "usage": {"include": True},
         }
+        if self.config.provider == "openrouter" or "openrouter.ai" in self.config.base_url:
+            body["parallel_tool_calls"] = False
+            body["usage"] = {"include": True}
         headers = {"Authorization": f"Bearer {self.config.api_key}", "X-Title": "HyperAgent"}
         last = "unknown error"
         for attempt in range(4):
@@ -159,9 +173,15 @@ class LLMClient:
             except AnthropicError as exc:
                 raise LLMError(str(exc)) from None
             return output, tokens_in, tokens_out, anthropic_cost(model, tokens_in, tokens_out)
-        body = {"model": model, "max_tokens": max_tokens, "temperature": 0, "usage": {"include": True},
-                "response_format": {"type": "json_object"},
-                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+        body: dict[str, Any] = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        }
+        if self.config.provider == "openrouter" or "openrouter.ai" in self.config.base_url:
+            body["usage"] = {"include": True}
         headers = {"Authorization": f"Bearer {self.config.api_key}", "X-Title": "HyperAgent"}
         try:
             response = await tracked_post(self.http, f"{self.config.base_url}/chat/completions",
