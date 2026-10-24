@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Velox — Browser Engine &amp; Persistent Session Testbench</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="status-dot" id="conn-dot"></span>
+      <strong>Velox Testbench</strong>
+      <span class="badge" id="status-badge">idle</span>
+    </div>
+    <div class="telemetry">
+      <span id="fps-counter">0 fps · 0 frames</span>
+      <label class="profile-toggle" title="Uses launch_persistent_context (.velox/browser-profile) for Cookies + localStorage + IndexedDB">
+        <input type="checkbox" id="persist-checkbox" checked />
+        <span>Persistent Profile (<code>.velox/browser-profile</code>)</span>
+      </label>
+      <button type="button" id="clear-profile-btn" class="btn btn-ghost">Clear Profile</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Left Sidebar: Controls, Goal Runner, Steps & DOM Inspector -->
+    <aside class="control-pane">
+      <section class="card">
+        <h2>1. Direct Browser &amp; Login Session Test</h2>
+        <p class="hint">Open any site (e.g. <code>https://www.faire.com</code>), click/type directly on the live viewport on the right to log in once, and verify the session stays logged in across runs.</p>
+        <div class="row">
+          <input type="text" id="url-input" value="https://www.google.com/travel/flights" placeholder="https://www.faire.com" />
+          <button type="button" id="open-url-btn" class="btn btn-primary">Open URL</button>
+          <button type="button" id="observe-btn" class="btn">Inspect DOM</button>
+        </div>
+        <div class="row">
+          <input type="text" id="takeover-text" placeholder="Type text into focused element on page…" />
+          <label class="inline-check"><input type="checkbox" id="takeover-enter" /> Enter</label>
+          <button type="button" id="takeover-type-btn" class="btn">Send Text</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>2. Autonomous Agent Goal Test</h2>
+        <textarea id="goal-input" rows="3" placeholder="e.g. Search for a one-way flight from JFK to LHR on Nov 15, 2026 and stop before booking"></textarea>
+        <div class="row">
+          <select id="mode-select">
+            <option value="risky" selected>Ask before risky actions</option>
+            <option value="never">Fully autonomous</option>
+            <option value="always">Ask every step</option>
+          </select>
+          <button type="button" id="run-goal-btn" class="btn btn-primary">Run Goal</button>
+          <button type="button" id="pause-btn" class="btn">Pause</button>
+          <button type="button" id="resume-btn" class="btn">Resume</button>
+          <button type="button" id="stop-btn" class="btn btn-danger">Stop</button>
+        </div>
+      </section>
+
+      <section class="card approval-card hidden" id="approval-box">
+        <h2>Approval Required</h2>
+        <p id="approval-label"></p>
+        <div class="row">
+          <button type="button" id="approve-btn" class="btn btn-primary">Approve</button>
+          <button type="button" id="reject-btn" class="btn btn-danger">Reject</button>
+        </div>
+      </section>
+
+      <section class="card log-card">
+        <div class="log-header">
+          <h2>Live Event &amp; DOM Inspector Log</h2>
+          <button type="button" id="clear-log-btn" class="btn btn-ghost">Clear</button>
+        </div>
+        <div id="event-log" class="event-log"></div>
+      </section>
+    </aside>
+
+    <!-- Right Stage: Smooth CDP Screencast Viewport -->
+    <section class="browser-pane">
+      <div class="browser-chrome">
+        <div class="url-bar" id="live-url">Waiting for browser stream…</div>
+        <div class="tab-strip" id="tab-strip"></div>
+      </div>
+      <div class="viewport-wrap" id="viewport-wrap">
+        <img id="viewport-img" class="viewport-img" tabindex="0" alt="Live Chromium CDP Screencast" />
+        <div id="target-box" class="target-box hidden">
+          <span id="target-label" class="target-label"></span>
+        </div>
+        <div id="empty-state" class="empty-state">
+          Click <strong>Open URL</strong> or <strong>Run Goal</strong> to start the live 15–25 FPS CDP Screencast.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
